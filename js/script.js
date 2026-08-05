@@ -7,7 +7,7 @@ const IS_LOCAL = location.hostname === '127.0.0.1' || location.hostname === 'loc
 
 // Chave local para desenvolvimento — NÃO vai para o GitHub (.gitignore)
 // Na Vercel a chave fica nas variáveis de ambiente (segura)
-const GROQ_API_KEY_LOCAL = "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";
+const GROQ_API_KEY_LOCAL = "/api/gerar";
 
 
 const btnGerar  = document.getElementById("gerar");
