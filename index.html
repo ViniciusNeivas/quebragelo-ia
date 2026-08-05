@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuebraGelo IA</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<header>
+    <h1>🎲 QuebraGelo IA</h1>
+    <p>Gere dinâmicas criativas para sua célula com Inteligência Artificial.</p>
+</header>
+
+<main class="container">
+
+    <!-- FORMULÁRIO -->
+    <section class="card form-card">
+        <h2>Informações da Reunião</h2>
+
+        <!-- Linha 1 -->
+        <div class="grupo-row">
+            <div class="grupo">
+                <label>Participantes</label>
+                <input type="number" id="participantes" value="15" min="2">
+            </div>
+            <div class="grupo">
+                <label>Faixa Etária</label>
+                <select id="idade">
+                    <option>Adolescentes</option>
+                    <option>Jovens</option>
+                    <option selected>Jovens Adultos</option>
+                    <option>Adultos</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Linha 2 -->
+        <div class="grupo-row">
+            <div class="grupo">
+                <label>Tempo disponível</label>
+                <select id="tempo">
+                    <option>5 minutos</option>
+                    <option selected>10 minutos</option>
+                    <option>15 minutos</option>
+                    <option>20 minutos</option>
+                    <option>30 minutos</option>
+                    <option>45 minutos</option>
+                </select>
+            </div>
+            <div class="grupo">
+                <label>Objetivo</label>
+                <select id="objetivo">
+                    <option>Integrar visitantes</option>
+                    <option>Quebrar o gelo</option>
+                    <option>Promover amizade</option>
+                    <option>Conhecer melhor o grupo</option>
+                    <option>Trabalho em equipe</option>
+                    <option>Diversão</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Linha 3 -->
+        <div class="grupo-row">
+            <div class="grupo">
+                <label>Tipo da reunião</label>
+                <select id="tipo">
+                    <option>Célula semanal</option>
+                    <option>Comunhão</option>
+                    <option>Evangelismo</option>
+                    <option>Retiro</option>
+                    <option>Acampamento</option>
+                    <option>Confraternização</option>
+                </select>
+            </div>
+            <div class="grupo">
+                <label>Materiais</label>
+                <select id="material">
+                    <option>Nenhum</option>
+                    <option>Papel</option>
+                    <option>Papel e Caneta</option>
+                    <option>Bíblia</option>
+                    <option>Balões</option>
+                    <option>Objetos variados</option>
+                    <option>Celular</option>
+                    <option>Projetor / TV</option>
+                    <option>Notebook</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Tipo de dinâmica -->
+        <div class="grupo">
+            <label>Tipo de dinâmica</label>
+            <select id="tipoDinamica" onchange="atualizarCampos()">
+                <option selected>Quebra-gelo</option>
+                <option>Jogo das 3 pistas</option>
+                <option>Quiz</option>
+                <option>Verdadeiro ou Falso</option>
+                <option>Pokémon ou Remédio</option>
+                <option>Marvel ou DC</option>
+                <option>Quem Sou Eu?</option>
+                <option>Complete a Frase</option>
+                <option>Emoji Game</option>
+                <option>Criar uma dinâmica inédita</option>
+            </select>
+        </div>
+
+        <!-- Campos de tema (oculto para Pokémon/Remédio, Marvel/DC, Quebra-gelo) -->
+        <div id="blocoTema">
+            <div class="grupo">
+                <label>Tema Principal</label>
+                <input type="text" id="tema" placeholder="Ex.: Marvel, Pokémon, Bíblia, Disney, Star Wars...">
+            </div>
+            <div class="grupo">
+                <label>Subtema <span class="opcional">(Opcional)</span></label>
+                <input type="text" id="subtema" placeholder="Ex.: Vilões, Princesas, X-Men, Lendários...">
+            </div>
+            <div class="grupo">
+                <label>Nível do grupo</label>
+                <select id="nivelGrupo">
+                    <option>Casual</option>
+                    <option selected>Intermediário</option>
+                    <option>Fã</option>
+                    <option>Especialista</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Dificuldade (aparece para todos exceto Quebra-gelo e Dinâmica inédita) -->
+        <div id="blocoDificuldade">
+            <div class="grupo">
+                <label>Dificuldade</label>
+                <select id="dificuldade">
+                    <option>Fácil</option>
+                    <option selected>Média</option>
+                    <option>Difícil</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Quantidade -->
+        <div class="grupo" id="campoQuantidade">
+            <label>Quantidade de perguntas/desafios</label>
+            <input type="number" id="quantidade" value="10" min="3" max="50">
+        </div>
+
+        <button id="gerar">✨ Gerar Dinâmica</button>
+    </section>
+
+    <!-- RESULTADO -->
+    <section class="card resultado-card">
+        <div class="resultado-header">
+            <h2>Resultado</h2>
+            <span class="historico-label" id="historicoLabel"></span>
+        </div>
+
+        <!-- Loading -->
+        <div id="loading" class="loading">
+            <div class="loading-spinner"></div>
+            <span id="loadingMsg">A IA está criando uma dinâmica incrível...</span>
+        </div>
+
+        <!-- Placeholder -->
+        <div id="placeholder" class="placeholder">
+            <div class="placeholder-icon">🎯</div>
+            <p>Preencha os campos ao lado e clique em <strong>Gerar Dinâmica</strong>.</p>
+            <div class="temas-sugeridos">
+                <span class="tema-tag">Marvel</span>
+                <span class="tema-tag">DC</span>
+                <span class="tema-tag">Pokémon</span>
+                <span class="tema-tag">Disney</span>
+                <span class="tema-tag">Star Wars</span>
+                <span class="tema-tag">Harry Potter</span>
+                <span class="tema-tag">Naruto</span>
+                <span class="tema-tag">Dragon Ball</span>
+                <span class="tema-tag">Bíblia</span>
+                <span class="tema-tag">Louvores</span>
+            </div>
+        </div>
+
+        <!-- Histórico -->
+        <div id="historicoContainer"></div>
+
+        <!-- Resultado atual -->
+        <div id="resultado"></div>
+    </section>
+
+</main>
+
+<footer>
+    <p>🎲 QuebraGelo IA &nbsp;·&nbsp; Projeto de Extensão Universitária &nbsp;·&nbsp; Inteligência Artificial para Devs</p>
+</footer>
+
+<!-- Popup de Avaliação -->
+<div id="popupOverlay" class="popup-overlay" onclick="fecharPopup(event)">
+  <div class="popup-box">
+    <button class="popup-fechar" onclick="dispensarPopup()">✕</button>
+    <div class="popup-icon">⭐</div>
+    <h3>Gostou da dinâmica?</h3>
+    <p>Sua avaliação ajuda a melhorar a ferramenta e faz parte do projeto de extensão universitária.</p>
+    <p class="popup-tempo">Leva menos de 1 minuto!</p>
+    <a class="popup-btn" href="https://forms.gle/V2GYJUMFcB4Kxh857" target="_blank" onclick="dispensarPopup()">
+      📋 Avaliar agora
+    </a>
+    <button class="popup-depois" onclick="dispensarPopup()">Agora não</button>
+  </div>
+</div>
+
+<script src="js/script.js"></script>
+</body>
+</html>

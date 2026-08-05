@@ -1,0 +1,12 @@
+# Variáveis de ambiente — NUNCA subir para o GitHub
+.env
+.env.local
+
+# Vercel
+.vercel
+
+# Node
+node_modules
+
+# Script com chave local — use script.example.js como referência
+js/script.js

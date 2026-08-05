@@ -1,0 +1,485 @@
+/* ===================================================
+   RESET
+=================================================== */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: "Poppins", sans-serif;
+    background: linear-gradient(135deg, #eef5ff 0%, #dbeafe 100%);
+    color: #333;
+    min-height: 100vh;
+}
+
+/* ===================================================
+   HEADER
+=================================================== */
+header {
+    background: linear-gradient(90deg, #2563eb, #1d4ed8);
+    color: white;
+    text-align: center;
+    padding: 36px 20px;
+    box-shadow: 0 5px 15px rgba(0,0,0,.15);
+}
+header h1 { font-size: 2.2rem; margin-bottom: 8px; }
+header p  { opacity: .9; font-size: .95rem; }
+
+/* ===================================================
+   CONTAINER
+=================================================== */
+.container {
+    width: 95%;
+    max-width: 1400px;
+    margin: 36px auto;
+    display: grid;
+    grid-template-columns: 440px 1fr;
+    gap: 28px;
+    align-items: start;
+}
+
+/* ===================================================
+   CARD
+=================================================== */
+.card {
+    background: #fff;
+    border-radius: 18px;
+    padding: 28px;
+    box-shadow: 0 15px 35px rgba(0,0,0,.08);
+}
+.card h2 { color: #2563eb; margin-bottom: 20px; font-size: 1.1rem; }
+
+/* ===================================================
+   FORMULÁRIO
+=================================================== */
+.grupo {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 14px;
+}
+.grupo label {
+    margin-bottom: 6px;
+    font-weight: 600;
+    font-size: .82rem;
+    color: #374151;
+}
+.opcional {
+    font-weight: 400;
+    color: #9ca3af;
+    font-size: .75rem;
+}
+.grupo-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+input, select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: "Poppins", sans-serif;
+    transition: .2s;
+    background: #fff;
+}
+input:focus, select:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+}
+
+/* Campos condicionais */
+#blocoTema, #blocoDificuldade { transition: opacity .3s; }
+
+/* ===================================================
+   BOTÃO GERAR
+=================================================== */
+#gerar {
+    width: 100%;
+    margin-top: 6px;
+    padding: 14px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(90deg, #2563eb, #1d4ed8);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: "Poppins", sans-serif;
+    cursor: pointer;
+    transition: .25s;
+    letter-spacing: .02em;
+}
+#gerar:hover:not(:disabled) { opacity: .88; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(37,99,235,.35); }
+#gerar:active:not(:disabled) { transform: scale(.98); }
+#gerar:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ===================================================
+   RESULTADO CARD
+=================================================== */
+.resultado-card { min-height: 400px; }
+
+.resultado-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+.historico-label {
+    font-size: .72rem;
+    color: #9ca3af;
+    font-weight: 500;
+}
+
+/* ===================================================
+   LOADING
+=================================================== */
+.loading {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 48px 20px;
+    color: #2563eb;
+    font-weight: 600;
+    font-size: .9rem;
+    text-align: center;
+}
+.loading-spinner {
+    width: 44px; height: 44px;
+    border: 4px solid #dbeafe;
+    border-top-color: #2563eb;
+    border-radius: 50%;
+    animation: girar .8s linear infinite;
+}
+
+/* ===================================================
+   PLACEHOLDER
+=================================================== */
+.placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 40px 20px;
+    text-align: center;
+    color: #6b7280;
+}
+.placeholder-icon { font-size: 2.5rem; }
+.placeholder p { font-size: .9rem; line-height: 1.6; }
+.placeholder strong { color: #2563eb; }
+
+.temas-sugeridos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 4px;
+}
+.tema-tag {
+    background: #eff6ff;
+    color: #2563eb;
+    border: 1px solid #bfdbfe;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: .75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: .2s;
+}
+.tema-tag:hover {
+    background: #2563eb;
+    color: #fff;
+}
+
+/* ===================================================
+   HISTÓRICO
+=================================================== */
+.historico-item {
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: .2s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.historico-item:hover { border-color: #2563eb; background: #eff6ff; }
+.historico-info { font-size: .8rem; color: #374151; font-weight: 600; }
+.historico-sub  { font-size: .72rem; color: #9ca3af; margin-top: 2px; }
+.historico-seta { color: #9ca3af; font-size: .9rem; }
+
+.historico-titulo {
+    font-size: .72rem;
+    font-weight: 700;
+    color: #9ca3af;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+
+/* ===================================================
+   DINÂMICA FORMATADA
+=================================================== */
+.dinamica {
+    background: #f8fafc;
+    border-left: 5px solid #2563eb;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 16px;
+    animation: fade .4s ease;
+}
+
+/* Cabeçalho da dinâmica */
+.din-header {
+    background: #eff6ff;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+}
+.din-nome {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1d4ed8;
+    margin-bottom: 8px;
+}
+.din-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.din-badge {
+    background: #dbeafe;
+    color: #1d4ed8;
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: .72rem;
+    font-weight: 600;
+}
+
+/* Seções da dinâmica */
+.din-secao { margin-bottom: 16px; }
+.din-secao-titulo {
+    font-size: .72rem;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin-bottom: 6px;
+}
+.din-secao-corpo {
+    font-size: .88rem;
+    line-height: 1.75;
+    color: #374151;
+}
+
+/* Desafios / itens */
+.din-desafio {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+}
+.din-desafio-titulo {
+    font-weight: 700;
+    color: #1d4ed8;
+    font-size: .85rem;
+    margin-bottom: 10px;
+}
+.din-pista {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 6px;
+    font-size: .85rem;
+}
+.din-pista-pts {
+    background: #2563eb;
+    color: #fff;
+    border-radius: 6px;
+    padding: 1px 8px;
+    font-size: .72rem;
+    font-weight: 700;
+    white-space: nowrap;
+    margin-top: 2px;
+}
+.din-pista-pts.pts-9 { background: #0891b2; }
+.din-pista-pts.pts-8 { background: #0d9488; }
+.din-resposta {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #e5e7eb;
+    font-size: .82rem;
+    color: #6b7280;
+}
+.din-resposta strong { color: #059669; }
+
+/* Item simples (Pokémon, Marvel ou DC) */
+.din-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: .85rem;
+    gap: 12px;
+}
+.din-item-nome { font-weight: 600; color: #111827; }
+.din-item-resp {
+    font-size: .75rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+.resp-pokemon  { background: #fef9c3; color: #854d0e; }
+.resp-remedio  { background: #dcfce7; color: #166534; }
+.resp-marvel   { background: #fee2e2; color: #991b1b; }
+.resp-dc       { background: #eff6ff; color: #1d4ed8; }
+.resp-outro    { background: #f3f4f6; color: #374151; }
+
+/* Texto puro (fallback) */
+.din-texto {
+    white-space: pre-wrap;
+    font-size: .88rem;
+    line-height: 1.8;
+    color: #374151;
+}
+
+/* Botões da dinâmica */
+.din-acoes {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+.btn-copiar, .btn-nova {
+    padding: 9px 18px;
+    border: none;
+    border-radius: 8px;
+    font-family: "Poppins", sans-serif;
+    font-size: .8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: .2s;
+}
+.btn-copiar { background: #10b981; color: #fff; }
+.btn-copiar:hover { background: #059669; }
+.btn-nova { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; }
+.btn-nova:hover { background: #e5e7eb; }
+
+/* ===================================================
+   SCROLL
+=================================================== */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-thumb { background: #bfdbfe; border-radius: 20px; }
+::-webkit-scrollbar-track { background: #eff6ff; }
+
+/* ===================================================
+   POPUP DE AVALIAÇÃO
+=================================================== */
+.popup-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.45);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn .3s ease;
+}
+.popup-overlay.ativo {
+    display: flex;
+}
+.popup-box {
+    background: #fff;
+    border-radius: 20px;
+    padding: 36px 32px 28px;
+    max-width: 380px;
+    width: 90%;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 24px 60px rgba(0,0,0,.2);
+    animation: slideUp .35s ease;
+}
+.popup-fechar {
+    position: absolute;
+    top: 14px; right: 16px;
+    background: none;
+    border: none;
+    font-size: 1rem;
+    color: #9ca3af;
+    cursor: pointer;
+    width: auto;
+    margin: 0;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: .2s;
+}
+.popup-fechar:hover { background: #f3f4f6; color: #374151; transform: none; }
+.popup-icon { font-size: 2.4rem; margin-bottom: 12px; }
+.popup-box h3 { font-size: 1.15rem; color: #111827; margin-bottom: 10px; }
+.popup-box p  { font-size: .88rem; color: #6b7280; line-height: 1.6; margin-bottom: 6px; }
+.popup-tempo  { font-size: .78rem !important; color: #10b981 !important; font-weight: 600; }
+.popup-btn {
+    display: block;
+    margin: 18px 0 10px;
+    padding: 13px;
+    background: linear-gradient(90deg, #2563eb, #1d4ed8);
+    color: #fff;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: .9rem;
+    transition: .2s;
+}
+.popup-btn:hover { opacity: .88; }
+.popup-depois {
+    background: none;
+    border: none;
+    color: #9ca3af;
+    font-size: .8rem;
+    cursor: pointer;
+    width: auto;
+    margin: 0;
+    padding: 6px 12px;
+    transition: .2s;
+}
+.popup-depois:hover { color: #374151; background: none; transform: none; box-shadow: none; }
+
+@keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+footer {
+    margin: 40px 0 24px;
+    text-align: center;
+    color: #9ca3af;
+    font-size: .78rem;
+}
+
+/* ===================================================
+   RESPONSIVO
+=================================================== */
+@media (max-width: 1000px) {
+    .container { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+    header h1 { font-size: 1.7rem; }
+    .card { padding: 20px; }
+    .grupo-row { grid-template-columns: 1fr; }
+}
+
+/* ===================================================
+   ANIMAÇÕES
+=================================================== */
+@keyframes girar { to { transform: rotate(360deg); } }
+@keyframes fade {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
