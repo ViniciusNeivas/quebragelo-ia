@@ -91,8 +91,8 @@ function atualizarCampos() {
     const semTema = ["Pokémon ou Remédio", "Marvel ou DC", "Quebra-gelo"];
     blocoTema.style.display = semTema.includes(tipo) ? "none" : "block";
 
-    // Dificuldade: aparece para todos exceto Quebra-gelo e Criar dinâmica inédita
-    const semDificuldade = ["Quebra-gelo", "Criar uma dinâmica inédita"];
+    // Dificuldade: some para Quebra-gelo, Criar dinâmica inédita, Pokémon ou Remédio e Marvel ou DC
+    const semDificuldade = ["Quebra-gelo", "Criar uma dinâmica inédita", "Pokémon ou Remédio", "Marvel ou DC"];
     blocoDificuldade.style.display = semDificuldade.includes(tipo) ? "none" : "block";
 
     // Quantidade: some para Quebra-gelo e Criar dinâmica inédita
@@ -351,42 +351,69 @@ function renderItens(texto, tipo) {
     return html;
 }
 
+// Converte markdown simples em HTML
+function parseMarkdown(texto) {
+    return texto
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/\n/g, '<br>');
+}
+
 // Texto formatado genérico
 function renderTextoFormatado(texto) {
-    const linhas = texto.split('\n');
     let html = '<div class="dinamica">';
-    let cabecalho = {};
-    let corpo = [];
+
     const camposCab = ["Nome da dinâmica","Objetivo","Tempo estimado","Participantes","Materiais","Como jogar","Regras","Dicas para o líder"];
+    const cabecalho = {};
+    const linhas = texto.split('\n');
+    const corpoPuro = [];
     let cabacabou = false;
 
     for (const linha of linhas) {
-        const cab = camposCab.find(c => linha.trim().startsWith(c + ':'));
+        // Remove ** do início para detectar campo (ex: **Nome da dinâmica:** ...)
+        const limpinha = linha.trim().replace(/^\*\*/,'').replace(/\*\*/,'');
+        const cab = camposCab.find(c => limpinha.startsWith(c + ':') || limpinha.startsWith(c + ' :'));
         if (cab && !cabacabou) {
-            cabecalho[cab] = linha.trim().replace(cab + ':', '').trim();
+            cabecalho[cab] = limpinha.replace(cab, '').replace(/^[\s:]+/, '').trim();
         } else {
             cabacabou = true;
-            corpo.push(linha);
+            if (linha.trim()) corpoPuro.push(linha);
         }
     }
+
+    const nome = cabecalho["Nome da dinâmica"] || "Dinâmica";
 
     // Cabeçalho
     html += `<div class="din-header">`;
-    html += `<div class="din-nome">🎲 ${cabecalho["Nome da dinâmica"] || "Dinâmica"}</div>`;
+    html += `<div class="din-nome">🎲 ${nome}</div>`;
     html += `<div class="din-meta">`;
+    if (cabecalho["Objetivo"])       html += `<span class="din-badge">🎯 ${cabecalho["Objetivo"]}</span>`;
     if (cabecalho["Tempo estimado"]) html += `<span class="din-badge">⏱ ${cabecalho["Tempo estimado"]}</span>`;
-    if (cabecalho["Participantes"]) html += `<span class="din-badge">👥 ${cabecalho["Participantes"]}</span>`;
-    if (cabecalho["Materiais"]) html += `<span class="din-badge">🎒 ${cabecalho["Materiais"]}</span>`;
+    if (cabecalho["Participantes"])  html += `<span class="din-badge">👥 ${cabecalho["Participantes"]}</span>`;
+    if (cabecalho["Materiais"])      html += `<span class="din-badge">🎒 ${cabecalho["Materiais"]}</span>`;
     html += `</div></div>`;
 
-    for (const campo of ["Objetivo","Como jogar","Regras","Dicas para o líder"]) {
-        if (cabecalho[campo]) {
-            html += `<div class="din-secao"><div class="din-secao-titulo">${campo}</div><div class="din-secao-corpo">${cabecalho[campo]}</div></div>`;
+    // Seções principais em cards
+    const secoes = [
+        { campo: "Como jogar",       icone: "🕹️" },
+        { campo: "Regras",           icone: "📋" },
+        { campo: "Dicas para o líder", icone: "💡" },
+    ];
+
+    for (const s of secoes) {
+        if (cabecalho[s.campo]) {
+            html += `
+            <div class="din-secao-card">
+                <div class="din-secao-titulo">${s.icone} ${s.campo}</div>
+                <div class="din-secao-corpo">${parseMarkdown(cabecalho[s.campo])}</div>
+            </div>`;
         }
     }
 
-    if (corpo.filter(l => l.trim()).length > 0) {
-        html += `<div class="din-texto">${corpo.join('\n').trim().replace(/\n/g,'<br>')}</div>`;
+    // Corpo extra (conteúdo após os campos padrão)
+    if (corpoPuro.length > 0) {
+        const corpoHtml = parseMarkdown(corpoPuro.join('\n'));
+        html += `<div class="din-corpo-extra">${corpoHtml}</div>`;
     }
 
     html += acoes(texto);
@@ -395,10 +422,14 @@ function renderTextoFormatado(texto) {
 }
 
 function acoes(texto) {
-    return `<div class="din-acoes">
-        <button class="btn-copiar" onclick="copiarTexto(this, \`${texto.replace(/`/g,"'").replace(/\\/g,"\\\\")}\`)">📋 Copiar</button>
-        <button class="btn-nova" onclick="document.getElementById('gerar').click()">🔄 Gerar nova</button>
-    </div>`;
+    // Usa data-attribute para evitar quebra com caracteres especiais
+    const id = 'txt-' + Math.random().toString(36).slice(2, 8);
+    return `
+        <textarea id="${id}" style="display:none">${texto.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+        <div class="din-acoes">
+            <button class="btn-copiar" onclick="copiarPorId('${id}', this)">📋 Copiar</button>
+            <button class="btn-nova" onclick="document.getElementById('gerar').click()">🔄 Gerar nova</button>
+        </div>`;
 }
 
 // ============================================
@@ -618,8 +649,10 @@ Responda APENAS com a dinâmica. Sem introduções, explicações ou comentário
 // ============================================
 
 function promptPokemonRemdio(participantes, idade, tempo, objetivo, material, dificuldade, quantidade) {
+// Sempre no nível máximo — é o que torna a dinâmica divertida
+const nivel = "Difícil";
 return `Crie exatamente ${quantidade} itens para o jogo "Pokémon ou Remédio".
-Dificuldade: ${dificuldade}
+Dificuldade: ${nivel}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REGRA DE ORDEM — MUITO IMPORTANTE
@@ -635,13 +668,6 @@ NUNCA invente nomes. Use apenas Pokémon que existem no jogo e remédios que exi
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REGRAS DE DIFICULDADE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${dificuldade === "Fácil" ? `
-Use Pokémon muito famosos das gerações 1 e 2: Pikachu, Charizard, Bulbasaur, Mewtwo, Gengar, Eevee, Gyarados.
-Use remédios domésticos conhecidos: Paracetamol, Ibuprofeno, Dipirona, Aspirina, Buscopan.
-` : dificuldade === "Média" ? `
-Use Pokémon das gerações 3 a 5 com nomes menos óbvios: Absol, Milotic, Lucario, Togekiss, Garchomp, Zoroark.
-Use remédios menos populares: Omeprazol, Loratadina, Amoxicilina, Sertralina, Fluoxetina, Cetirizina.
-` : `
 NÍVEL DIFÍCIL/ESPECIALISTA:
 Use APENAS Pokémon das gerações 6 a 9 com nomes que PARECEM remédios:
 Exemplos: Comfey, Xurkitree, Silicobra, Arboliva, Bellibolt, Grafaiai, Fidough, Dachsbun, Cetitan, Wo-Chien, Chien-Pao, Ting-Lu, Chi-Yu, Koraidon, Miraidon, Glimmora, Gimmighoul, Annihilape, Clodsire, Farigiraf
@@ -652,7 +678,6 @@ Exemplos: Clobazam, Tacrolimo, Sirolimo, Ziprasidona, Vardenafila, Eslicarbazepi
 O objetivo é ser IMPOSSÍVEL adivinhar apenas pelo som do nome.
 PROIBIDO usar Pokémon das gerações 1 e 2.
 PROIBIDO usar remédios conhecidos popularmente.
-`}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FORMATO DE SAÍDA
@@ -678,8 +703,10 @@ Responda APENAS com a dinâmica. Sem introduções ou comentários.`;
 // ============================================
 
 function promptMarvelDC(participantes, idade, tempo, objetivo, material, dificuldade, quantidade) {
+// Sempre no nível máximo para ser mais divertido
+const nivel = "Difícil";
 return `Crie exatamente ${quantidade} itens para o jogo "Marvel ou DC".
-Dificuldade: ${dificuldade}
+Dificuldade: ${nivel}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REGRAS
@@ -687,13 +714,8 @@ REGRAS
 Não use apenas heróis. Misture: heróis, vilões, equipes, objetos, locais, organizações.
 Todos os itens devem ser REAIS do universo Marvel ou DC — nunca invente.
 
-Dificuldade ${dificuldade}:
-${dificuldade === "Fácil"
-    ? "Use personagens muito famosos: Homem-Aranha, Batman, Superman, Thor, Coringa, Thanos."
-    : dificuldade === "Média"
-    ? "Misture famosos e intermediários. Inclua equipes e locais."
-    : "Use personagens, locais e objetos conhecidos apenas por leitores de HQ. Evite protagonistas dos filmes."
-}
+Dificuldade ${nivel}:
+Use personagens, locais e objetos conhecidos apenas por leitores de HQ. Evite protagonistas dos filmes.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FORMATO DE SAÍDA
@@ -869,25 +891,24 @@ function embaralharItens(texto) {
 // ============================================
 // COPIAR
 // ============================================
+// COPIAR
+// ============================================
 
-function copiarTexto(btn, texto) {
-    navigator.clipboard.writeText(texto).then(() => {
+function copiarPorId(id, btn) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    navigator.clipboard.writeText(el.value).then(() => {
         btn.textContent = "✅ Copiado!";
         setTimeout(() => btn.textContent = "📋 Copiar", 2000);
-        // Agenda popup 3s após copiar — pessoa já tem o resultado em mãos
         agendarPopup(3000);
     });
 }
 
-function copiarResultado() {
-    const pre = document.querySelector(".dinamica pre");
-    if (pre) {
-        navigator.clipboard.writeText(pre.innerText).then(() => {
-            const btn = document.querySelector(".copiar");
-            if (btn) {
-                btn.textContent = "✅ Copiado!";
-                setTimeout(() => btn.textContent = "📋 Copiar dinâmica", 2000);
-            }
-        });
-    }
+// Mantido para compatibilidade
+function copiarTexto(btn, texto) {
+    navigator.clipboard.writeText(texto).then(() => {
+        btn.textContent = "✅ Copiado!";
+        setTimeout(() => btn.textContent = "📋 Copiar", 2000);
+        agendarPopup(3000);
+    });
 }
