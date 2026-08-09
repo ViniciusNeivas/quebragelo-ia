@@ -88,8 +88,51 @@ input:focus, select:focus {
     box-shadow: 0 0 0 3px rgba(37,99,235,.12);
 }
 
-/* Campos condicionais */
-#blocoTema, #blocoDificuldade { transition: opacity .3s; }
+/* Número input com botões +/- */
+.numero-input {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    overflow: hidden;
+    transition: .2s;
+}
+.numero-input:focus-within {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+}
+.numero-input input {
+    border: none;
+    border-radius: 0;
+    text-align: center;
+    flex: 1;
+    box-shadow: none !important;
+    -moz-appearance: textfield;
+}
+.numero-input input:focus { box-shadow: none; outline: none; }
+.numero-input input::-webkit-outer-spin-button,
+.numero-input input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.numero-btn {
+    width: 40px;
+    min-width: 40px;
+    height: 42px;
+    background: #f3f4f6;
+    border: none;
+    border-radius: 0;
+    color: #374151;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: .15s;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.numero-btn:hover { background: #e5e7eb; transform: none; }
+.numero-btn:active { background: #d1d5db; transform: scale(.95); }
 
 /* ===================================================
    BOTÃO GERAR
