@@ -388,8 +388,37 @@ input:focus, select:focus {
 .resp-dc       { background: #eff6ff; color: #1d4ed8; }
 .resp-outro    { background: #f3f4f6; color: #374151; }
 
-/* Texto puro (fallback) */
-.din-texto {
+/* Seção em card */
+.din-secao-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+}
+.din-secao-card .din-secao-titulo {
+    font-size: .72rem;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin-bottom: 8px;
+}
+.din-secao-card .din-secao-corpo {
+    font-size: .88rem;
+    line-height: 1.75;
+    color: #374151;
+}
+.din-secao-card .din-secao-corpo strong { color: #1d4ed8; }
+
+/* Corpo extra */
+.din-corpo-extra {
+    font-size: .88rem;
+    line-height: 1.75;
+    color: #374151;
+    padding: 4px 0;
+}
+.din-corpo-extra strong { color: #1d4ed8; }
     white-space: pre-wrap;
     font-size: .88rem;
     line-height: 1.8;
