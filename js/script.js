@@ -154,7 +154,7 @@ async function gerarDinamica() {
                     "Authorization": `Bearer ${GROQ_API_KEY_LOCAL}`
                 },
                 body: JSON.stringify({
-                    model: "llama-3.3-70b-versatile",
+                    model: "openai/gpt-oss-120b",
                     max_tokens: 4096,
                     messages: [{
                         role: "user",
@@ -713,6 +713,8 @@ REGRAS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Não use apenas heróis. Misture: heróis, vilões, equipes, objetos, locais, organizações.
 Todos os itens devem ser REAIS do universo Marvel ou DC — nunca invente.
+Use o NOME EM PORTUGUÊS quando existir tradução oficial (ex: Homem-Aranha, Coringa, Mulher-Maravilha, Sindicato do Crime e não Crime Syndicate, Corte das Coruja e não Court of Owls ou coisas similares).
+Quando não houver tradução oficial consagrada, use o nome original em inglês (ex: Batman, Superman).
 
 Dificuldade ${nivel}:
 Use personagens, locais e objetos conhecidos apenas por leitores de HQ. Evite protagonistas dos filmes.
@@ -810,11 +812,29 @@ Formato: [número]. [afirmação] → [Verdadeiro/Falso] — [explicação]
 ` : ""}
 
 ${tipoDinamica === "Quem Sou Eu?" ? `
-Crie exatamente ${quantidade} personagens.
-Cada um com 4 dicas progressivas sem citar o nome.
+Crie exatamente ${quantidade} personagens do tema: ${tema || "Livre"}.
+Cada um com 4 dicas progressivas SEM citar o nome da resposta.
+Responda TUDO em português brasileiro.
+
+REGRAS OBRIGATÓRIAS:
+- Cada personagem deve aparecer UMA única vez — NUNCA repita a mesma resposta
+- As dicas devem ser 100% corretas e verificáveis — não invente fatos
+- Dica 1: muito difícil, curiosidade rara
+- Dica 2: média, ajuda a direcionar
+- Dica 3: mais fácil, característica conhecida
+- Dica 4: quase entrega, mas sem citar o nome
+
+VERIFICAÇÃO antes de cada personagem:
+1. Essa resposta já apareceu antes? → Se SIM, troque
+2. As dicas são factualmente corretas? → Se NÃO, reescreva
+3. Alguma dica cita o nome da resposta? → Se SIM, reescreva
+
 Formato:
 Personagem [número]
-Dica 1: [difícil] | Dica 2: [média] | Dica 3: [fácil] | Dica 4: [quase entrega]
+Dica 1: [muito difícil]
+Dica 2: [média]
+Dica 3: [mais fácil]
+Dica 4: [quase entrega]
 Resposta: [nome]
 ` : ""}
 
