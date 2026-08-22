@@ -2,18 +2,16 @@
 // CONFIGURAÇÃO
 // ============================================
 
-// Detecta se está rodando local (Live Server) ou na Vercel
 const IS_LOCAL = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
 
-// Para rodar localmente: coloque sua chave Groq aqui
-// Obtenha em: console.groq.com → API Keys
+// Para rodar localmente: coloque sua chave Gemini aqui
+// Obtenha em: aistudio.google.com/apikey
 // ATENÇÃO: antes de fazer git push, apague a chave desta linha!
-const GROQ_API_KEY_LOCAL = "SUA_CHAVE_GROQ_AQUI";
+const GEMINI_API_KEY_LOCAL = "SUA_CHAVE_GEMINI_AQUI";
 
-
-const btnGerar  = document.getElementById("gerar");
-const resultado = document.getElementById("resultado");
-const loading   = document.getElementById("loading");
+const btnGerar    = document.getElementById("gerar");
+const resultado   = document.getElementById("resultado");
+const loading     = document.getElementById("loading");
 const placeholder = document.getElementById("placeholder");
 
 const MSGS_LOADING = [
@@ -25,9 +23,7 @@ const MSGS_LOADING = [
     "Quase pronto, aguenta mais um segundo...",
 ];
 
-// Histórico em memória (máx 3)
 const historico = [];
-
 btnGerar.addEventListener("click", gerarDinamica);
 
 // ============================================
@@ -46,10 +42,6 @@ function alterarNumero(id, delta) {
 // POPUP DE AVALIAÇÃO
 // ============================================
 
-// ============================================
-// POPUP DE AVALIAÇÃO
-// ============================================
-
 let popupTimer = null;
 
 function mostrarPopup() {
@@ -58,14 +50,13 @@ function mostrarPopup() {
 
 function dispensarPopup() {
     document.getElementById("popupOverlay").classList.remove("ativo");
-    cancelarPopup(); // cancela qualquer timer pendente
+    cancelarPopup();
 }
 
 function fecharPopup(e) {
     if (e.target === document.getElementById("popupOverlay")) dispensarPopup();
 }
 
-// Agenda popup — cancela timer anterior se houver
 function agendarPopup(delayMs) {
     cancelarPopup();
     popupTimer = setTimeout(mostrarPopup, delayMs);
@@ -79,28 +70,25 @@ document.addEventListener("keydown", e => {
     if (e.key === "Escape") dispensarPopup();
 });
 
-
+// ============================================
+// CAMPOS CONDICIONAIS
+// ============================================
 
 function atualizarCampos() {
     const tipo = document.getElementById("tipoDinamica").value;
-    const blocoTema       = document.getElementById("blocoTema");
+    const blocoTema        = document.getElementById("blocoTema");
     const blocoDificuldade = document.getElementById("blocoDificuldade");
-    const qtd             = document.getElementById("campoQuantidade");
+    const qtd              = document.getElementById("campoQuantidade");
 
-    // Tema e subtema: só para tipos que usam tema
-    const semTema = ["Pokémon ou Remédio", "Marvel ou DC", "Quebra-gelo"];
-    blocoTema.style.display = semTema.includes(tipo) ? "none" : "block";
-
-    // Dificuldade: some para Quebra-gelo, Criar dinâmica inédita, Pokémon ou Remédio e Marvel ou DC
+    const semTema        = ["Pokémon ou Remédio", "Marvel ou DC", "Quebra-gelo"];
     const semDificuldade = ["Quebra-gelo", "Criar uma dinâmica inédita", "Pokémon ou Remédio", "Marvel ou DC"];
-    blocoDificuldade.style.display = semDificuldade.includes(tipo) ? "none" : "block";
+    const semQtd         = ["Quebra-gelo", "Criar uma dinâmica inédita"];
 
-    // Quantidade: some para Quebra-gelo e Criar dinâmica inédita
-    const semQtd = ["Quebra-gelo", "Criar uma dinâmica inédita"];
-    qtd.style.display = semQtd.includes(tipo) ? "none" : "flex";
+    blocoTema.style.display        = semTema.includes(tipo)        ? "none"  : "block";
+    blocoDificuldade.style.display = semDificuldade.includes(tipo) ? "none"  : "block";
+    qtd.style.display              = semQtd.includes(tipo)         ? "none"  : "flex";
 }
 
-// Clique nas tags de tema
 document.querySelectorAll(".tema-tag").forEach(tag => {
     tag.addEventListener("click", () => {
         document.getElementById("tema").value = tag.textContent;
@@ -109,7 +97,21 @@ document.querySelectorAll(".tema-tag").forEach(tag => {
 });
 
 // ============================================
-// GERAÇÃO
+// COUNTDOWN VISÍVEL NO LOADING
+// ============================================
+
+async function contarRegressiva(segundos, tentativa, max) {
+    for (let s = segundos; s > 0; s--) {
+        document.getElementById("loadingMsg").textContent =
+            `Aguardando ${s}s... (tentativa ${tentativa}/${max})`;
+        await new Promise(r => setTimeout(r, 1000));
+    }
+    document.getElementById("loadingMsg").textContent =
+        MSGS_LOADING[Math.floor(Math.random() * MSGS_LOADING.length)];
+}
+
+// ============================================
+// GERAÇÃO COM RETRY AUTOMÁTICO
 // ============================================
 
 async function gerarDinamica() {
@@ -126,8 +128,7 @@ async function gerarDinamica() {
     const dificuldade   = document.getElementById("dificuldade")?.value || "Média";
     const quantidade    = document.getElementById("quantidade")?.value || "10";
 
-    // UI: inicia loading
-    cancelarPopup(); // cancela popup pendente se pessoa clicou em gerar nova
+    cancelarPopup();
     placeholder.style.display = "none";
     resultado.innerHTML = "";
     loading.style.display = "flex";
@@ -142,82 +143,129 @@ async function gerarDinamica() {
         material, dificuldade, quantidade
     );
 
-    try {
-        let texto;
+    const MAX_TENTATIVAS = 5;
+    const maxTokensMap = {
+        'Pokémon ou Remédio':        1000,
+        'Marvel ou DC':              1000,
+        'Quebra-gelo':               1000,
+        'Jogo das 3 pistas':         1800,
+        'Quiz':                      2000,
+        'Verdadeiro ou Falso':       1200,
+        'Quem Sou Eu?':              1800,
+        'Complete a Frase':          1000,
+        'Emoji Game':                 800,
+        'Criar uma dinâmica inédita':1200,
+    };
+    const maxTokens = maxTokensMap[tipoDinamica] || 1200;
 
-        if (IS_LOCAL) {
-            // ── LOCAL (Live Server): chama Groq direto ──
-            const resposta = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${GROQ_API_KEY_LOCAL}`
-                },
-                body: JSON.stringify({
-                    model: "openai/gpt-oss-120b",
-                    max_tokens: 4096,
-                    messages: [{
-                        role: "user",
-                        content: "Você é especialista em criar dinâmicas para células cristãs. Siga EXATAMENTE as instruções abaixo sem introduções ou conclusões.\n\n" + prompt
-                    }]
-                })
-            });
+    for (let tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
+        try {
+            let texto;
 
-            if (!resposta.ok) {
-                const errJson = await resposta.json().catch(() => ({}));
-                throw new Error(`Erro ${resposta.status}: ${errJson?.error?.message || "Tente novamente."}`);
+            if (IS_LOCAL) {
+                // ── LOCAL: chama Gemini direto ──
+                const resposta = await fetch(
+                    'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent',
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "x-goog-api-key": GEMINI_API_KEY_LOCAL
+                        },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{
+                                    text: "Você é especialista em criar dinâmicas para células cristãs. Responda SEMPRE em português do Brasil. Siga EXATAMENTE as instruções abaixo sem introduções ou conclusões.\n\n" + prompt
+                                }]
+                            }],
+                            generationConfig: {
+                                maxOutputTokens: maxTokens,
+                                temperature: 0.8
+                            }
+                        })
+                    }
+                );
+
+                const dados = await resposta.json();
+
+                if (resposta.status === 429 || resposta.status === 503) {
+                    if (tentativa < MAX_TENTATIVAS) {
+                        await contarRegressiva(15, tentativa, MAX_TENTATIVAS);
+                        continue;
+                    }
+                    throw new Error("Limite de requisições atingido. Tente novamente em alguns segundos.");
+                }
+
+                if (!resposta.ok) throw new Error(`Erro ${resposta.status}: ${dados?.error?.message || "Tente novamente."}`);
+                texto = dados.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+            } else {
+                // ── VERCEL: chama backend seguro ──
+                const resposta = await fetch("/api/gerar", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ prompt, tipoDinamica })
+                });
+
+                const dados = await resposta.json();
+
+                if (resposta.status === 429 || resposta.status === 503) {
+                    if (tentativa < MAX_TENTATIVAS) {
+                        const espera = dados?.retryAfter || 15;
+                        await contarRegressiva(espera, tentativa, MAX_TENTATIVAS);
+                        continue;
+                    }
+                    throw new Error("Limite de requisições atingido. Tente novamente em alguns segundos.");
+                }
+
+                if (!resposta.ok) throw new Error(`Erro ${resposta.status}: ${dados?.error || "Tente novamente."}`);
+                texto = dados.resultado;
             }
 
-            const dados = await resposta.json();
-            texto = dados.choices[0].message.content;
+            // Sucesso — processa resultado
+            loading.style.display = "none";
+            texto = (texto || '').replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 
-        } else {
-            // ── VERCEL (produção): chama backend seguro ──
-            const resposta = await fetch("/api/gerar", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt })
-            });
-
-            if (!resposta.ok) {
-                const errJson = await resposta.json().catch(() => ({}));
-                throw new Error(`Erro ${resposta.status}: ${errJson?.error || "Tente novamente."}`);
+            if (!texto || texto.length < 50) {
+                if (tentativa < MAX_TENTATIVAS) {
+                    document.getElementById("loadingMsg").textContent =
+                        `Resposta incompleta. Tentando novamente (${tentativa}/${MAX_TENTATIVAS})...`;
+                    await new Promise(r => setTimeout(r, 2000));
+                    loading.style.display = "flex";
+                    continue;
+                }
+                resultado.innerHTML = `<div class="dinamica"><div class="din-texto" style="color:#dc2626">Não foi possível gerar após ${MAX_TENTATIVAS} tentativas. Tente novamente.</div></div>`;
+                break;
             }
 
-            const dados = await resposta.json();
-            texto = dados.resultado;
+            if (tipoDinamica === "Pokémon ou Remédio" || tipoDinamica === "Marvel ou DC") {
+                texto = embaralharItens(texto);
+            }
+
+            salvarHistorico(tipoDinamica, tema, texto);
+            agendarPopup(25000);
+            resultado.innerHTML = renderizarDinamica(texto, tipoDinamica);
+            break;
+
+        } catch (erro) {
+            loading.style.display = "none";
+            resultado.innerHTML = `
+                <div class="dinamica">
+                    <div class="din-texto" style="color:#dc2626">❌ ${erro.message}</div>
+                </div>`;
+            console.error(erro);
+            break;
+        } finally {
+            if (loading.style.display === "none") {
+                btnGerar.disabled = false;
+                btnGerar.textContent = "✨ Gerar Dinâmica";
+            }
         }
-
-        loading.style.display = "none";
-        texto = texto.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-
-        // Embaralha se necessário
-        if (tipoDinamica === "Pokémon ou Remédio" || tipoDinamica === "Marvel ou DC") {
-            texto = embaralharItens(texto);
-        }
-
-        // Salva no histórico
-        salvarHistorico(tipoDinamica, tema, texto);
-
-        // Agenda popup 25s após geração — orgânico, pessoa já leu o resultado
-        agendarPopup(25000);
-
-        // Renderiza formatado
-        resultado.innerHTML = renderizarDinamica(texto, tipoDinamica);
-
-    } catch (erro) {
-        loading.style.display = "none";
-        resultado.innerHTML = `
-            <div class="dinamica">
-                <div class="din-texto" style="color:#dc2626">
-                    ❌ ${erro.message}
-                </div>
-            </div>`;
-        console.error(erro);
-    } finally {
-        btnGerar.disabled = false;
-        btnGerar.textContent = "✨ Gerar Dinâmica";
     }
+
+    // Garante que o botão seja reativado sempre
+    btnGerar.disabled = false;
+    btnGerar.textContent = "✨ Gerar Dinâmica";
 }
 
 // ============================================
@@ -231,14 +279,12 @@ function renderizarDinamica(texto, tipo) {
     return renderTextoFormatado(texto);
 }
 
-// Jogo das 3 pistas
 function renderTresPistas(texto) {
     const linhas = texto.split('\n').map(l => l.trim()).filter(l => l);
     let html = '';
     let cabecalho = {};
     let desafios = [];
     let desafioAtual = null;
-    let fasePistas = false;
 
     const camposCab = ["Nome da dinâmica","Objetivo","Tempo estimado","Participantes","Materiais","Como jogar","Regras","Dicas para o líder"];
 
@@ -246,13 +292,11 @@ function renderTresPistas(texto) {
         const cabMatch = camposCab.find(c => linha.startsWith(c + ':') || linha.startsWith(c + ' :'));
         if (cabMatch) {
             cabecalho[cabMatch] = linha.replace(cabMatch, '').replace(/^[\s:]+/, '');
-            fasePistas = false;
             continue;
         }
         if (/^Desafio\s+\d+$/i.test(linha)) {
             if (desafioAtual) desafios.push(desafioAtual);
             desafioAtual = { num: linha, pistas: [], resposta: '' };
-            fasePistas = true;
             continue;
         }
         if (desafioAtual) {
@@ -261,27 +305,23 @@ function renderTresPistas(texto) {
                 desafioAtual.pistas.push({ pts: pistasMatch[1], texto: pistasMatch[2] });
             } else if (/^Resposta[:\s]+/i.test(linha)) {
                 desafioAtual.resposta = linha.replace(/^Resposta[:\s]+/i, '');
-            } else if (/^---+$/.test(linha)) {
-                // separador
             }
         }
     }
     if (desafioAtual) desafios.push(desafioAtual);
 
-    // Cabeçalho
     html += `<div class="dinamica">`;
     html += `<div class="din-header">`;
     html += `<div class="din-nome">🎯 ${cabecalho["Nome da dinâmica"] || "Jogo das 3 Pistas"}</div>`;
     html += `<div class="din-meta">`;
     if (cabecalho["Tempo estimado"]) html += `<span class="din-badge">⏱ ${cabecalho["Tempo estimado"]}</span>`;
-    if (cabecalho["Participantes"]) html += `<span class="din-badge">👥 ${cabecalho["Participantes"]}</span>`;
-    if (cabecalho["Materiais"]) html += `<span class="din-badge">🎒 ${cabecalho["Materiais"]}</span>`;
+    if (cabecalho["Participantes"])  html += `<span class="din-badge">👥 ${cabecalho["Participantes"]}</span>`;
+    if (cabecalho["Materiais"])      html += `<span class="din-badge">🎒 ${cabecalho["Materiais"]}</span>`;
     html += `</div></div>`;
 
-    if (cabecalho["Como jogar"]) html += `<div class="din-secao"><div class="din-secao-titulo">Como jogar</div><div class="din-secao-corpo">${cabecalho["Como jogar"]}</div></div>`;
+    if (cabecalho["Como jogar"])        html += `<div class="din-secao"><div class="din-secao-titulo">Como jogar</div><div class="din-secao-corpo">${cabecalho["Como jogar"]}</div></div>`;
     if (cabecalho["Dicas para o líder"]) html += `<div class="din-secao"><div class="din-secao-titulo">💡 Dica para o líder</div><div class="din-secao-corpo">${cabecalho["Dicas para o líder"]}</div></div>`;
 
-    // Desafios
     if (desafios.length > 0) {
         html += `<div class="din-secao-titulo" style="margin-bottom:10px">Desafios</div>`;
         for (const d of desafios) {
@@ -303,11 +343,9 @@ function renderTresPistas(texto) {
     return html;
 }
 
-// Pokémon ou Remédio / Marvel ou DC
 function renderItens(texto, tipo) {
     const linhas = texto.split('\n').map(l => l.trim()).filter(l => l);
     let html = '<div class="dinamica">';
-    let cabecalhoHtml = '';
     let itensHtml = '';
     let cabecalhoPronto = false;
     let cabecalhoTemp = {};
@@ -334,12 +372,11 @@ function renderItens(texto, tipo) {
         }
     }
 
-    // Cabeçalho
     html += `<div class="din-header">`;
     html += `<div class="din-nome">${tipo === 'pokemon' ? '🎮' : '🦸'} ${cabecalhoTemp["Nome da dinâmica"] || (tipo === 'pokemon' ? 'Pokémon ou Remédio?' : 'Marvel ou DC?')}</div>`;
     html += `<div class="din-meta">`;
     if (cabecalhoTemp["Tempo estimado"]) html += `<span class="din-badge">⏱ ${cabecalhoTemp["Tempo estimado"]}</span>`;
-    if (cabecalhoTemp["Participantes"]) html += `<span class="din-badge">👥 ${cabecalhoTemp["Participantes"]}</span>`;
+    if (cabecalhoTemp["Participantes"])  html += `<span class="din-badge">👥 ${cabecalhoTemp["Participantes"]}</span>`;
     html += `</div></div>`;
 
     if (cabecalhoTemp["Como jogar"]) html += `<div class="din-secao"><div class="din-secao-titulo">Como jogar</div><div class="din-secao-corpo">${cabecalhoTemp["Como jogar"]}</div></div>`;
@@ -351,7 +388,6 @@ function renderItens(texto, tipo) {
     return html;
 }
 
-// Converte markdown simples em HTML
 function parseMarkdown(texto) {
     return texto
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -359,10 +395,8 @@ function parseMarkdown(texto) {
         .replace(/\n/g, '<br>');
 }
 
-// Texto formatado genérico
 function renderTextoFormatado(texto) {
     let html = '<div class="dinamica">';
-
     const camposCab = ["Nome da dinâmica","Objetivo","Tempo estimado","Participantes","Materiais","Como jogar","Regras","Dicas para o líder"];
     const cabecalho = {};
     const linhas = texto.split('\n');
@@ -370,7 +404,6 @@ function renderTextoFormatado(texto) {
     let cabacabou = false;
 
     for (const linha of linhas) {
-        // Remove ** do início para detectar campo (ex: **Nome da dinâmica:** ...)
         const limpinha = linha.trim().replace(/^\*\*/,'').replace(/\*\*/,'');
         const cab = camposCab.find(c => limpinha.startsWith(c + ':') || limpinha.startsWith(c + ' :'));
         if (cab && !cabacabou) {
@@ -383,7 +416,6 @@ function renderTextoFormatado(texto) {
 
     const nome = cabecalho["Nome da dinâmica"] || "Dinâmica";
 
-    // Cabeçalho
     html += `<div class="din-header">`;
     html += `<div class="din-nome">🎲 ${nome}</div>`;
     html += `<div class="din-meta">`;
@@ -393,27 +425,24 @@ function renderTextoFormatado(texto) {
     if (cabecalho["Materiais"])      html += `<span class="din-badge">🎒 ${cabecalho["Materiais"]}</span>`;
     html += `</div></div>`;
 
-    // Seções principais em cards
-    const secoes = [
-        { campo: "Como jogar",       icone: "🕹️" },
-        { campo: "Regras",           icone: "📋" },
+    for (const s of [
+        { campo: "Como jogar",         icone: "🕹️" },
+        { campo: "Regras",             icone: "📋" },
         { campo: "Dicas para o líder", icone: "💡" },
-    ];
-
-    for (const s of secoes) {
+    ]) {
         if (cabecalho[s.campo]) {
-            html += `
-            <div class="din-secao-card">
-                <div class="din-secao-titulo">${s.icone} ${s.campo}</div>
-                <div class="din-secao-corpo">${parseMarkdown(cabecalho[s.campo])}</div>
-            </div>`;
+            html += `<div class="din-secao-card"><div class="din-secao-titulo">${s.icone} ${s.campo}</div><div class="din-secao-corpo">${parseMarkdown(cabecalho[s.campo])}</div></div>`;
         }
     }
 
-    // Corpo extra (conteúdo após os campos padrão)
     if (corpoPuro.length > 0) {
-        const corpoHtml = parseMarkdown(corpoPuro.join('\n'));
-        html += `<div class="din-corpo-extra">${corpoHtml}</div>`;
+        html += `<div class="din-corpo-extra">${parseMarkdown(corpoPuro.join('\n'))}</div>`;
+    }
+
+    // Fallback: nenhum campo reconhecido — exibe texto puro
+    if (Object.keys(cabecalho).length === 0 && corpoPuro.length === 0) {
+        html = '<div class="dinamica">';
+        html += `<div class="din-corpo-extra">${parseMarkdown(texto)}</div>`;
     }
 
     html += acoes(texto);
@@ -422,7 +451,6 @@ function renderTextoFormatado(texto) {
 }
 
 function acoes(texto) {
-    // Usa data-attribute para evitar quebra com caracteres especiais
     const id = 'txt-' + Math.random().toString(36).slice(2, 8);
     return `
         <textarea id="${id}" style="display:none">${texto.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
@@ -444,13 +472,9 @@ function salvarHistorico(tipo, tema, texto) {
 
 function renderizarHistorico() {
     const container = document.getElementById("historicoContainer");
-    const label = document.getElementById("historicoLabel");
+    const label     = document.getElementById("historicoLabel");
 
-    if (historico.length <= 1) {
-        container.innerHTML = '';
-        label.textContent = '';
-        return;
-    }
+    if (historico.length <= 1) { container.innerHTML = ''; label.textContent = ''; return; }
 
     label.textContent = `${historico.length - 1} geração(ões) anterior(es)`;
 
@@ -478,23 +502,11 @@ function verHistorico(idx) {
 // ROTEADOR DE PROMPTS
 // ============================================
 
-function montarPrompt(
-    participantes, idade, tempo, objetivo, tipo,
-    tipoDinamica, tema, subtema, nivelGrupo,
-    material, dificuldade, quantidade
-) {
-    if (tipoDinamica === "Jogo das 3 pistas") {
-        return promptTresPistas(participantes, idade, tempo, objetivo, tipo, tema, subtema, nivelGrupo, material, dificuldade, quantidade);
-    }
-    if (tipoDinamica === "Pokémon ou Remédio") {
-        return promptPokemonRemdio(participantes, idade, tempo, objetivo, material, dificuldade, quantidade);
-    }
-    if (tipoDinamica === "Marvel ou DC") {
-        return promptMarvelDC(participantes, idade, tempo, objetivo, material, dificuldade, quantidade);
-    }
-    if (tipoDinamica === "Quiz") {
-        return promptQuiz(participantes, idade, tempo, objetivo, tipo, tema, subtema, nivelGrupo, material, dificuldade, quantidade);
-    }
+function montarPrompt(participantes, idade, tempo, objetivo, tipo, tipoDinamica, tema, subtema, nivelGrupo, material, dificuldade, quantidade) {
+    if (tipoDinamica === "Jogo das 3 pistas")   return promptTresPistas(participantes, idade, tempo, objetivo, tipo, tema, subtema, nivelGrupo, material, dificuldade, quantidade);
+    if (tipoDinamica === "Pokémon ou Remédio")  return promptPokemonRemdio(participantes, idade, tempo, objetivo, material, dificuldade, quantidade);
+    if (tipoDinamica === "Marvel ou DC")        return promptMarvelDC(participantes, idade, tempo, objetivo, material, dificuldade, quantidade);
+    if (tipoDinamica === "Quiz")                return promptQuiz(participantes, idade, tempo, objetivo, tipo, tema, subtema, nivelGrupo, material, dificuldade, quantidade);
     return promptGenerico(participantes, idade, tempo, objetivo, tipo, tipoDinamica, tema, subtema, material, dificuldade, quantidade);
 }
 
@@ -507,141 +519,41 @@ return `Crie exatamente ${quantidade} desafios do "Jogo das 3 Pistas".
 Tema: ${tema || "Livre"}${subtema ? ` | Subtema: ${subtema}` : ""}
 Nível do grupo: ${nivelGrupo} | Dificuldade: ${dificuldade}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-REGRA 1 — TAMANHO DAS PISTAS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Cada pista deve ter NO MÁXIMO 2 PALAVRAS.
-Exemplos corretos: "Vibranium", "Wakanda", "Pym Partículas", "Quantum Realm"
-Exemplos ERRADOS: "Nação africana", "Tecnologia avançada", "Soldado super soldado"
-Se a pista tiver 3 ou mais palavras, reescreva.
+REGRA 1 — Cada pista: NO MÁXIMO 2 PALAVRAS.
+REGRA 2 — NUNCA use palavra do nome da resposta nas pistas (nome, apelido, tradução, sigla).
+REGRA 3 — Pistas genéricas são inválidas (Herói, Vilão, Mutante, Vingador).
+REGRA 4 — Cada resposta aparece UMA única vez.
+REGRA 5 — Use APENAS o universo: ${tema || "Livre"}. Não misture universos.
+REGRA 6 — Dicas e respostas em português. Inglês só quando não há tradução (ex: Batman).
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-REGRA 2 — PROIBIÇÃO TOTAL DE NOMES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-NUNCA use nas pistas qualquer palavra do nome da resposta.
-• Resposta "Homem de Ferro" → proibido: Tony, Stark, Iron, Man, Homem, Ferro, Armadura
-• Resposta "Capitão América" → proibido: Steve, Rogers, Cap, Capitão, América, Escudo
-• Resposta "Gavião Arqueiro" → proibido: Clint, Barton, Gavião, Arqueiro, Hawkeye, Arco, Flecha
-• Resposta "Pantera Negra" → proibido: T'Challa, Pantera, Negra, Wakanda, Vibranium (quando entrega)
-• Resposta "Professor X" → proibido: Charles, Xavier, Professor, X, Escola, Mutantes
-• Resposta "Thanos" → proibido: Thanos, Infinito, Joias, Manopla, Dedos
+EXEMPLOS CORRETOS:
+Resposta: Thor → 10pts: Ragnarok | 9pts: Odinson | 8pts: Stormbreaker
+Resposta: Doutor Estranho → 10pts: Sanctum | 9pts: Gema Tempo | 8pts: Neurocirurgião
+Resposta: Nick Fury → 10pts: Triskelion | 9pts: Tapa-olho | 8pts: Helicarrier
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-REGRA 3 — SEM PISTAS GENÉRICAS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Pistas que servem para 2 ou mais personagens são INVÁLIDAS.
-❌ "Herói", "Vilão", "Poderoso", "Mutante", "Vingador", "Alienígena"
-❌ "Planeta destruído" (serve para vários), "Escola especiais" (serve para vários)
-Cada pista deve identificar UM único personagem/item no universo inteiro.
+DIFICULDADE ${dificuldade}: ${dificuldade === "Fácil" ? "personagens famosos, pistas acessíveis." : dificuldade === "Média" ? "misture famosos e intermediários, evite Homem de Ferro e Capitão América." : "apenas personagens de HQ, sem protagonistas dos filmes."}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-REGRA 4 — SEM REPETIÇÃO
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Cada resposta deve aparecer UMA única vez nos ${quantidade} desafios.
-Não repita o mesmo personagem em desafios diferentes.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-REGRA 5 — TEMA EXCLUSIVO
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Use APENAS personagens, locais e objetos do universo: ${tema || "Livre"}.
-Não misture universos diferentes (ex: não misture Marvel com DC).
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-EXEMPLO DE DESAFIO CORRETO
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Resposta: Thor
-
-ERRADO ❌
-10 pontos: Asgardiano (genérico — serve para Loki, Odin, Valquíria)
-9 pontos: Mjolnir (entrega a resposta diretamente)
-8 pontos: Thor (é a própria resposta!)
-
-CORRETO ✅
-10 pontos: Ragnarok (evento específico ligado a Thor)
-9 pontos: Odinson (sobrenome, não parte do nome Thor)
-8 pontos: Stormbreaker (arma exclusiva, não é o nome)
-
----
-
-Resposta: Doutor Estranho
-
-ERRADO ❌
-10 pontos: Kamar-Taj (entrega pois só ele é mestre de Kamar-Taj)
-9 pontos: Mago (genérico)
-8 pontos: Estranho (parte do nome!)
-
-CORRETO ✅
-10 pontos: Sanctum (sede exclusiva dele)
-9 pontos: Tempo Gema (pedra que ele guardava)
-8 pontos: Neurocirurgião (profissão antes dos poderes)
-
----
-
-Resposta: Nick Fury
-
-ERRADO ❌
-10 pontos: S.H.I.E.L.D (muito ligado ao nome)
-9 pontos: Agente (genérico)
-8 pontos: Fury (é o sobrenome da resposta!)
-
-CORRETO ✅
-10 pontos: Triskelion (sede da S.H.I.E.L.D.)
-9 pontos: Tapa-olho (característica física única)
-8 pontos: Helicarrier (veículo exclusivo da organização dele)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DIFICULDADE: ${dificuldade}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${dificuldade === "Fácil"
-    ? "Use personagens muito famosos. Pistas possíveis de acertar mesmo sem ser fã."
-    : dificuldade === "Média"
-    ? "Misture personagens famosos e intermediários. Pistas exigem algum conhecimento. EVITE protagonistas óbvios como Homem de Ferro e Capitão América."
-    : "Use apenas personagens/locais conhecidos por fãs de HQ. PROIBIDO usar protagonistas dos filmes. Prefira coadjuvantes, locais e objetos de arcos menos conhecidos."
-}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CHECKLIST ANTES DE CADA DESAFIO
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. Alguma pista tem mais de 2 palavras? → Reescreva.
-2. Alguma pista usa palavra do nome da resposta? → Reescreva.
-3. Alguma pista é genérica (serve para 2+ personagens)? → Reescreva.
-4. A pista de 8 pontos entrega a resposta? → Reescreva.
-5. Esse personagem já apareceu em outro desafio? → Troque.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FORMATO DE SAÍDA — SIGA EXATAMENTE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FORMATO:
 Nome da dinâmica: Jogo das 3 Pistas — ${tema || "Livre"}
 Objetivo: ${objetivo}
 Tempo estimado: ${tempo}
 Participantes: ${participantes} | ${idade}
 Materiais: ${material}
-Como jogar: Leia as pistas uma a uma. Quem acertar na 1ª pista ganha 10 pts, na 2ª ganha 9 pts, na 3ª ganha 8 pts.
-Regras: Cada participante responde individualmente. Não fale a resposta antes do líder pedir.
-Dicas para o líder: Faça pausas entre as pistas. Mantenha o suspense.
+Como jogar: Leia as pistas uma a uma. 1ª pista = 10pts, 2ª = 9pts, 3ª = 8pts.
+Regras: Resposta individual. Não fale antes do líder pedir.
+Dicas para o líder: Faça pausas. Mantenha o suspense.
 
 ---
 
 Desafio 1
+10 pontos: [1-2 palavras em português]
+9 pontos: [1-2 palavras em português]
+8 pontos: [1-2 palavras em português]
+Resposta: [resposta em português]
 
-10 pontos
-[1-2 palavras]
+[repita até desafio ${quantidade}]
 
-9 pontos
-[1-2 palavras]
-
-8 pontos
-[1-2 palavras]
-
-Resposta
-[resposta]
-
-[repita até o desafio ${quantidade}]
-
-Responda APENAS com a dinâmica. Sem introduções, explicações ou comentários.`;
+Responda APENAS com a dinâmica. Sem comentários.`;
 }
 
 // ============================================
@@ -649,53 +561,31 @@ Responda APENAS com a dinâmica. Sem introduções, explicações ou comentário
 // ============================================
 
 function promptPokemonRemdio(participantes, idade, tempo, objetivo, material, dificuldade, quantidade) {
-// Sempre no nível máximo — é o que torna a dinâmica divertida
-const nivel = "Difícil";
-return `Crie exatamente ${quantidade} itens para o jogo "Pokémon ou Remédio".
-Dificuldade: ${nivel}
+return `Crie exatamente ${quantidade} itens para "Pokémon ou Remédio?". Nível: Difícil.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-REGRA DE ORDEM — MUITO IMPORTANTE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-NUNCA alterne a ordem de forma previsível (Pokémon, Remédio, Pokémon, Remédio...).
-Embaralhe de forma ALEATÓRIA e IMPREVISÍVEL.
-Exemplos de ordem boa: P, P, R, P, R, R, P, R, P, R
-Ou: R, R, P, R, P, P, R, P, R, P
-Pode ter 2, 3 ou até 4 do mesmo tipo seguidos.
-O participante NUNCA deve conseguir adivinhar pelo padrão de alternância.
-NUNCA invente nomes. Use apenas Pokémon que existem no jogo e remédios que existem de verdade.
+REGRAS:
+- Use APENAS nomes reais — nunca invente.
+- Pokémon das gerações 6-9 com nomes que parecem remédios: Comfey, Xurkitree, Bellibolt, Grafaiai, Fidough, Glimmora, Annihilape, Clodsire, Cetitan, Koraidon, Miraidon, Gimmighoul, Dachsbun, Arboliva, Farigiraf.
+- Remédios com nomes que parecem Pokémon: Clobazam, Sirolimo, Ziprasidona, Eslicarbazepina, Teriflunomida, Ibrutinibe, Venetoclax, Natalizumabe, Tacrolimo, Fingolimode.
+- PROIBIDO: Pokémon gens 1-2, remédios populares (Paracetamol, Ibuprofeno, Dipirona).
+- Ordem ALEATÓRIA — nunca alternado P,R,P,R. Pode ter 2-4 do mesmo tipo seguidos.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-REGRAS DE DIFICULDADE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-NÍVEL DIFÍCIL/ESPECIALISTA:
-Use APENAS Pokémon das gerações 6 a 9 com nomes que PARECEM remédios:
-Exemplos: Comfey, Xurkitree, Silicobra, Arboliva, Bellibolt, Grafaiai, Fidough, Dachsbun, Cetitan, Wo-Chien, Chien-Pao, Ting-Lu, Chi-Yu, Koraidon, Miraidon, Glimmora, Gimmighoul, Annihilape, Clodsire, Farigiraf
-
-Use APENAS remédios com nomes que PARECEM Pokémon:
-Exemplos: Clobazam, Tacrolimo, Sirolimo, Ziprasidona, Vardenafila, Eslicarbazepina, Teriflunomida, Fingolimode, Natalizumabe, Ocrelizumabe, Alemtuzumabe, Ibrutinibe, Venetoclax, Carfilzomibe, Idelalisibe
-
-O objetivo é ser IMPOSSÍVEL adivinhar apenas pelo som do nome.
-PROIBIDO usar Pokémon das gerações 1 e 2.
-PROIBIDO usar remédios conhecidos popularmente.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FORMATO DE SAÍDA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FORMATO (sem texto extra, sem comentários):
 Nome da dinâmica: Pokémon ou Remédio?
 Objetivo: ${objetivo}
 Tempo estimado: ${tempo}
 Participantes: ${participantes}
 Materiais: ${material}
 Como jogar: O líder lê cada nome. Os participantes decidem: Pokémon ou Remédio?
-Regras: Sem consultar o celular. Quem acertar mais pontos vence.
-Dicas para o líder: Leia devagar e dramaticamente para aumentar a tensão.
+Regras: Sem celular. Quem acertar mais vence.
+Dicas para o líder: Leia devagar e dramaticamente.
 
 ---
 
-${Array.from({length: quantidade}, (_, i) => `${i + 1}. Nome: [nome]\nResposta: [Pokémon ou Remédio]`).join("\n\n")}
+1. Nome: [nome]
+Resposta: [Pokémon ou Remédio]
 
-Responda APENAS com a dinâmica. Sem introduções ou comentários.`;
+[repita até o item ${quantidade}]`;
 }
 
 // ============================================
@@ -703,25 +593,15 @@ Responda APENAS com a dinâmica. Sem introduções ou comentários.`;
 // ============================================
 
 function promptMarvelDC(participantes, idade, tempo, objetivo, material, dificuldade, quantidade) {
-// Sempre no nível máximo para ser mais divertido
-const nivel = "Difícil";
-return `Crie exatamente ${quantidade} itens para o jogo "Marvel ou DC".
-Dificuldade: ${nivel}
+return `Crie exatamente ${quantidade} itens para "Marvel ou DC?". Nível: Difícil.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-REGRAS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Não use apenas heróis. Misture: heróis, vilões, equipes, objetos, locais, organizações.
-Todos os itens devem ser REAIS do universo Marvel ou DC — nunca invente.
-Use o NOME EM PORTUGUÊS quando existir tradução oficial (ex: Homem-Aranha, Coringa, Mulher-Maravilha, Sindicato do Crime e não Crime Syndicate, Corte das Coruja e não Court of Owls ou coisas similares).
-Quando não houver tradução oficial consagrada, use o nome original em inglês (ex: Batman, Superman).
+REGRAS:
+- Misture heróis, vilões, equipes, objetos, locais, organizações.
+- Apenas itens REAIS — nunca invente.
+- Use PORTUGUÊS quando houver tradução oficial (Homem-Aranha, Coringa, Sindicato do Crime, Corte das Corujas). Inglês só quando não há tradução (Batman, Superman).
+- Nível difícil: itens conhecidos apenas por leitores de HQ. Evite protagonistas dos filmes.
 
-Dificuldade ${nivel}:
-Use personagens, locais e objetos conhecidos apenas por leitores de HQ. Evite protagonistas dos filmes.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FORMATO DE SAÍDA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FORMATO (sem texto extra, sem comentários):
 Nome da dinâmica: Marvel ou DC?
 Objetivo: ${objetivo}
 Tempo estimado: ${tempo}
@@ -733,9 +613,10 @@ Dicas para o líder: Inclua itens que confundem para aumentar a diversão.
 
 ---
 
-${Array.from({length: quantidade}, (_, i) => `${i + 1}. Nome: [nome]\nResposta: [Marvel ou DC]`).join("\n\n")}
+1. Nome: [nome em português quando possível]
+Resposta: [Marvel ou DC]
 
-Responda APENAS com a dinâmica. Sem introduções ou comentários.`;
+[repita até o item ${quantidade}]`;
 }
 
 // ============================================
@@ -745,33 +626,20 @@ Responda APENAS com a dinâmica. Sem introduções ou comentários.`;
 function promptQuiz(participantes, idade, tempo, objetivo, tipo, tema, subtema, nivelGrupo, material, dificuldade, quantidade) {
 return `Crie exatamente ${quantidade} perguntas de Quiz.
 Tema: ${tema || "Livre"}${subtema ? ` | Subtema: ${subtema}` : ""}
-Nível do grupo: ${nivelGrupo} | Dificuldade: ${dificuldade}
+Dificuldade: ${dificuldade}
 
-Cada pergunta deve ter:
-- Enunciado claro
-- 4 alternativas (A, B, C, D)
-- Resposta correta indicada
-- Explicação curta do porquê
+Cada pergunta: enunciado + 4 alternativas (A/B/C/D) + resposta correta + explicação curta.
+Dificuldade ${dificuldade}: ${dificuldade === "Fácil" ? "perguntas populares e diretas." : dificuldade === "Média" ? "misture fáceis e intermediárias." : "curiosidades para fãs dedicados."}
 
-Dificuldade ${dificuldade}:
-${dificuldade === "Fácil"
-    ? "Perguntas diretas sobre referências muito populares."
-    : dificuldade === "Média"
-    ? "Misture perguntas fáceis e intermediárias. Algumas devem exigir conhecimento."
-    : "Use curiosidades, detalhes e informações conhecidas apenas por fãs dedicados. Evite perguntas óbvias."
-}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FORMATO DE SAÍDA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FORMATO:
 Nome da dinâmica: Quiz — ${tema || "Livre"}
 Objetivo: ${objetivo}
 Tempo estimado: ${tempo}
 Participantes: ${participantes} | ${idade}
 Materiais: ${material}
-Como jogar: O líder lê cada pergunta e as alternativas. Os participantes anotam ou respondem em voz alta.
-Regras: Sem celular. Quem acertar mais pontos vence.
-Dicas para o líder: Dê 15 segundos por pergunta. Revele a resposta com drama.
+Como jogar: O líder lê cada pergunta e alternativas. Participantes respondem.
+Regras: Sem celular. Quem acertar mais vence.
+Dicas para o líder: 15 segundos por pergunta. Revele a resposta com drama.
 
 ---
 
@@ -784,91 +652,54 @@ D) [alternativa]
 Resposta: [letra]
 Por quê: [explicação curta]
 
-[repita até a pergunta ${quantidade}]
+[repita até pergunta ${quantidade}]
 
-Responda APENAS com o quiz. Sem introduções ou comentários.`;
+Responda APENAS com o quiz. Sem comentários.`;
 }
 
 // ============================================
-// GENÉRICO — demais tipos
+// GENÉRICO
 // ============================================
 
 function promptGenerico(participantes, idade, tempo, objetivo, tipo, tipoDinamica, tema, subtema, material, dificuldade, quantidade) {
-return `Crie uma dinâmica do tipo "${tipoDinamica}" pronta para uso imediato.
-Tema: ${tema || "Livre"}${subtema ? ` | Subtema: ${subtema}` : ""}
-Participantes: ${participantes} — ${idade}
-Tempo: ${tempo} | Objetivo: ${objetivo}
-Tipo de reunião: ${tipo} | Materiais: ${material}
+return `Crie uma dinâmica do tipo "${tipoDinamica}" pronta para uso.
+Tema: ${tema || "Livre"}${subtema ? ` | ${subtema}` : ""}
+Participantes: ${participantes} — ${idade} | Tempo: ${tempo}
+Objetivo: ${objetivo} | Materiais: ${material}
 Dificuldade: ${dificuldade} | Quantidade: ${quantidade}
 
-Inclua sempre no início:
-Nome da dinâmica, Objetivo, Tempo estimado, Participantes, Materiais, Como jogar, Regras, Dicas para o líder.
+Inclua: Nome da dinâmica, Objetivo, Tempo estimado, Participantes, Materiais, Como jogar, Regras, Dicas para o líder.
 
-${tipoDinamica === "Verdadeiro ou Falso" ? `
-Crie exatamente ${quantidade} afirmações. Metade verdadeiras, metade falsas.
-Inclua resposta e explicação curta para cada.
-Dificuldade ${dificuldade}: ${dificuldade === "Fácil" ? "afirmações óbvias" : dificuldade === "Média" ? "misture fáceis e difíceis" : "afirmações que enganam até fãs dedicados"}.
-Formato: [número]. [afirmação] → [Verdadeiro/Falso] — [explicação]
-` : ""}
+${tipoDinamica === "Verdadeiro ou Falso" ? `Crie ${quantidade} afirmações (metade verdadeiras, metade falsas) com resposta e explicação.
+Formato: [número]. [afirmação] → [Verdadeiro/Falso] — [explicação]` : ""}
 
-${tipoDinamica === "Quem Sou Eu?" ? `
-Crie exatamente ${quantidade} personagens do tema: ${tema || "Livre"}.
-Cada um com 4 dicas progressivas SEM citar o nome da resposta.
-Responda TUDO em português brasileiro.
-
-REGRAS OBRIGATÓRIAS:
-- Cada personagem deve aparecer UMA única vez — NUNCA repita a mesma resposta
-- As dicas devem ser 100% corretas e verificáveis — não invente fatos
-- Dica 1: muito difícil, curiosidade rara
-- Dica 2: média, ajuda a direcionar
-- Dica 3: mais fácil, característica conhecida
-- Dica 4: quase entrega, mas sem citar o nome
-
-VERIFICAÇÃO antes de cada personagem:
-1. Essa resposta já apareceu antes? → Se SIM, troque
-2. As dicas são factualmente corretas? → Se NÃO, reescreva
-3. Alguma dica cita o nome da resposta? → Se SIM, reescreva
-
+${tipoDinamica === "Quem Sou Eu?" ? `Crie ${quantidade} personagens com 4 dicas progressivas SEM citar o nome. Não repita personagens. Dicas 100% corretas.
 Formato:
 Personagem [número]
-Dica 1: [muito difícil]
-Dica 2: [média]
-Dica 3: [mais fácil]
-Dica 4: [quase entrega]
-Resposta: [nome]
-` : ""}
+Dica 1: [difícil] | Dica 2: [média] | Dica 3: [fácil] | Dica 4: [quase entrega]
+Resposta: [nome]` : ""}
 
-${tipoDinamica === "Complete a Frase" ? `
-Crie exatamente ${quantidade} frases com lacuna para completar.
-Use frases de filmes, séries, músicas gospel ou versículos bíblicos.
-Formato: [número]. "[frase com ___]" → Resposta: [palavra]
-` : ""}
+${tipoDinamica === "Complete a Frase" ? `Crie ${quantidade} frases com lacuna. Use filmes, séries, músicas gospel ou versículos.
+Formato: [número]. "[frase com ___]" → Resposta: [palavra]` : ""}
 
-${tipoDinamica === "Emoji Game" ? `
-Crie exatamente ${quantidade} desafios com emojis representando personagem, filme, música ou versículo.
-Formato: [número]. [emojis] → Resposta: [resposta]
-` : ""}
+${tipoDinamica === "Emoji Game" ? `Crie ${quantidade} desafios com emojis representando personagem, filme, música ou versículo.
+Formato: [número]. [emojis] → Resposta: [resposta]` : ""}
 
-${tipoDinamica === "Quebra-gelo" ? `
-Crie uma dinâmica de quebra-gelo criativa, fácil de executar sem preparação, para ${participantes} pessoas de ${idade} em ${tempo}.
-` : ""}
+${tipoDinamica === "Quebra-gelo" ? `Dinâmica criativa e fácil de executar para ${participantes} pessoas de ${idade} em ${tempo}.` : ""}
 
-${tipoDinamica === "Criar uma dinâmica inédita" ? `
-Invente uma dinâmica TOTALMENTE NOVA. Não use quiz, verdadeiro/falso ou jogo das pistas.
-Tema: ${tema || "Livre"}. Seja criativo e surpreendente.
-` : ""}
+${tipoDinamica === "Criar uma dinâmica inédita" ? `Invente algo TOTALMENTE NOVO. Não use quiz, verdadeiro/falso ou jogo das pistas. Tema: ${tema || "Livre"}.` : ""}
 
-Responda APENAS com a dinâmica pronta. Sem introduções ou comentários.`;
+Responda APENAS com a dinâmica. Sem comentários.`;
 }
 
 // ============================================
-// EMBARALHAR ITENS (Pokémon ou Remédio / Marvel ou DC)
+// EMBARALHAR ITENS
 // ============================================
 
 function embaralharItens(texto) {
     const linhas = texto.split('\n');
     const cabecalhoLinhas = [];
-    const pares = []; // cada par = { nome, resposta }
+    const pares = [];
     let cabecalhoPronto = false;
 
     for (let i = 0; i < linhas.length; i++) {
@@ -876,7 +707,6 @@ function embaralharItens(texto) {
         const nomeMatch = linha.match(/^\d+\.\s*Nome:\s*(.+)/i);
         if (nomeMatch) {
             cabecalhoPronto = true;
-            // próxima linha não-vazia deve ser a resposta
             let resp = '';
             for (let j = i + 1; j < linhas.length; j++) {
                 const prox = linhas[j].trim();
@@ -894,22 +724,15 @@ function embaralharItens(texto) {
 
     if (pares.length === 0) return texto;
 
-    // Fisher-Yates shuffle
     for (let i = pares.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [pares[i], pares[j]] = [pares[j], pares[i]];
     }
 
-    // Reconstrói o texto com itens embaralhados e renumerados
-    const itensTexto = pares.map((p, i) =>
-        `${i + 1}. Nome: ${p.nome}\nResposta: ${p.resposta}`
-    );
-
+    const itensTexto = pares.map((p, i) => `${i + 1}. Nome: ${p.nome}\nResposta: ${p.resposta}`);
     return cabecalhoLinhas.join('\n').trim() + '\n\n---\n\n' + itensTexto.join('\n\n');
 }
 
-// ============================================
-// COPIAR
 // ============================================
 // COPIAR
 // ============================================
@@ -924,7 +747,6 @@ function copiarPorId(id, btn) {
     });
 }
 
-// Mantido para compatibilidade
 function copiarTexto(btn, texto) {
     navigator.clipboard.writeText(texto).then(() => {
         btn.textContent = "✅ Copiado!";
